@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Time Zone Clock</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+            padding-top: 30px; /* Reduced from 100px to 30px */
+        }
+        .clock-container {
+            display: flex;
+            justify-content: flex-start;
+            gap: 20px;
+            max-width: 100%;
+            overflow-x: auto;
+            padding: 20px;
+            margin-top: 0; /* Remove any top margin */
+        }
+        .clock-card {
+            flex: 0 0 auto;  /* 防止卡片被压缩 */
+            text-align: center;
+            padding: 20px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            width: 200px;
+        }
+        .time {
+            font-size: 2em;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="clock-container">
+        <div class="clock-card" data-timezone="UTC">
+            <h3>UTC (GMT+0)</h3>
+            <div class="time" id="time-utc"></div>
+        </div>
+        <div class="clock-card" data-timezone="Asia/Shanghai">
+            <h3>Shanghai</h3>
+            <div class="time" id="time-shanghai"></div>
+        </div>
+        <div class="clock-card" data-timezone="America/New_York">
+            <h3>New York</h3>
+            <div class="time" id="time-newyork"></div>
+        </div>
+        <div class="clock-card" data-timezone="Europe/London">
+            <h3>London</h3>
+            <div class="time" id="time-london"></div>
+        </div>
+        <div class="clock-card" data-timezone="Asia/Tokyo">
+            <h3>Tokyo</h3>
+            <div class="time" id="time-tokyo"></div>
+        </div>
+        <div class="clock-card" data-timezone="Australia/Sydney">
+            <h3>Sydney</h3>
+            <div class="time" id="time-sydney"></div>
+        </div>
+    </div>
+
+    <div class="timestamp-converter" style="margin-top: 30px; text-align: center;">
+        <input 
+            type="text" 
+            id="timestamp-input" 
+            placeholder="Enter timestamp (seconds or milliseconds)" 
+            style="padding: 10px; width: 250px; margin-right: 10px; border-radius: 5px; border: 1px solid #ddd;"
+        >
+        <input 
+            type="text" 
+            id="timezone-input" 
+            placeholder="Enter timezone (e.g. UTC+08:00)" 
+            style="padding: 10px; width: 200px; margin-right: 10px; border-radius: 5px; border: 1px solid #ddd;"
+        >
+        <button 
+            onclick="convertTimestamp()" 
+            style="padding: 10px 20px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer;"
+        >
+            Convert
+        </button>
+        <span 
+            id="timestamp-result" 
+            style="margin-left: 10px; font-size: 1.2em; color: #333; display: inline-block;"
+        ></span>
+    </div>
+
+    <div class="datetime-converter" style="margin-top: 20px; text-align: center;">
+        <input 
+            type="text" 
+            id="datetime-input" 
+            placeholder="Enter datetime (yyyy-mm-dd HH:MM:SS)" 
+            style="padding: 10px; width: 250px; margin-right: 10px; border-radius: 5px; border: 1px solid #ddd;"
+        >
+        <input 
+            type="text" 
+            id="datetime-timezone-input" 
+            placeholder="Enter timezone (e.g. Asia/Shanghai)" 
+            style="padding: 10px; width: 200px; margin-right: 10px; border-radius: 5px; border: 1px solid #ddd;"
+        >
+        <button 
+            onclick="convertDatetime()" 
+            style="padding: 10px 20px; background-color: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer;"
+        >
+            To Timestamp
+        </button>
+        <span 
+            id="datetime-result" 
+            style="margin-left: 10px; font-size: 1.2em; color: #333; display: inline-block;"
+        ></span>
+    </div>
+
+    <script>
+        function updateTime() {
+            const clockCards = document.querySelectorAll('.clock-card');
+            clockCards.forEach(card => {
+                const timezone = card.getAttribute('data-timezone');
+                const options = {
+                    timeZone: timezone,
+                    hour12: false,
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                };
+                const time = new Date().toLocaleTimeString('en-US', options);
+                card.querySelector('.time').textContent = time;
+            });
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+
+        function convertTimestamp() {
+            const timestampStr = document.getElementById('timestamp-input').value;
+            const timezoneStr = document.getElementById('timezone-input').value;
+            
+            if (!timestampStr || !timezoneStr) return;
+            
+            const utcRegex = /^UTC[+-](?:\d{2}):(?:\d{2})$/;
+            if (!utcRegex.test(timezoneStr)) {
+                document.getElementById('timestamp-result').textContent = 'Please use format UTC+HH:MM (e.g. UTC+00:00)';
+                return;
+            }
+
+            try {
+                let timestamp = parseInt(timestampStr);
+                
+                // Convert to milliseconds if seconds were provided
+                if (timestamp < 10000000000) {
+                    timestamp *= 1000;
+                }
+
+                const date = new Date(timestamp);
+                if (isNaN(date)) throw new Error('Invalid timestamp');
+                
+                // Parse timezone offset
+                const sign = timezoneStr[3] === '+' ? 1 : -1;
+                const hours = parseInt(timezoneStr.substr(4,2));
+                const minutes = parseInt(timezoneStr.substr(7,2));
+                const offsetMinutes = sign * (hours * 60 + minutes);
+                const offsetMs = offsetMinutes * 60 * 1000;
+                
+                // Get UTC time first
+                const utcTime = new Date(date.getTime() - date.getTimezoneOffset() * 60 * 1000);
+                // Then apply the requested offset
+                const adjustedDate = new Date(utcTime.getTime() + offsetMs);
+                
+                const result = adjustedDate.toISOString()
+                    .replace('T', ' ')
+                    .replace('.000Z', '');
+                    
+                document.getElementById('timestamp-result').textContent = result;
+            } catch (error) {
+                document.getElementById('timestamp-result').textContent = 'Invalid input';
+            }
+        }
+
+        function convertDatetime() {
+            const datetimeStr = document.getElementById('datetime-input').value;
+            const timezone = document.getElementById('datetime-timezone-input').value;
+            
+            if (!datetimeStr || !timezone) return;
+
+            try {
+                // Convert datetime string to Date object
+                const [datePart, timePart] = datetimeStr.split(' ');
+                const [year, month, day] = datePart.split('-');
+                const [hour, minute, second] = timePart.split(':');
+                
+                // Create date in specified timezone
+                const date = new Date(Date.UTC(
+                    parseInt(year),
+                    parseInt(month) - 1,
+                    parseInt(day),
+                    parseInt(hour),
+                    parseInt(minute),
+                    parseInt(second)
+                ));
+
+                // Convert to timestamp in seconds
+                const timestamp = Math.floor(date.getTime() / 1000);
+                document.getElementById('datetime-result').textContent = timestamp;
+            } catch (error) {
+                document.getElementById('datetime-result').textContent = 'Invalid input';
+            }
+        }
+    </script>
+</body>
+</html>
